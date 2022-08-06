@@ -4,22 +4,19 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <style>
-      document,
-      body {
-        margin: 100px;
-        overflow: hidden;
-      }
-    </style>
     <title>Document</title>
   </head>
   <body>
     <canvas style="border: 1px solid black" id="out"></canvas>
     <script>
+      const __NOT_THE_PASSWORD = atob('cXdlaXVvaGRmMzAkKiNCSkhXSkVI');
+      const end = 'https://data.hackclub.mococovid.com';
+      const status = prompt('client = 123') === '123' ? 'client' : 'driver';
+
       const canvas = document.getElementById('out');
       const ctx = canvas.getContext('2d');
       (window.onresize = () => {
-        canvas.width = window.innerWidth * 0.78;
+        canvas.width = window.innerWidth * 0.95;
         canvas.height = window.innerHeight / 2;
       })();
       const limits = [
@@ -27,8 +24,6 @@
         { x: 37.78662352047515, y: -122.40631596968298 },
         { x: 37.78577964868966, y: -122.40614569840906 },
       ];
-      const point = { x: 37.78616420368948, y: -122.40603353515951 };
-      const point2 = { x: 37.78641318568992, y: -122.40612260597534 };
       function map_range(x, inMin, inMax, outMin, outMax) {
         return ((x - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
       }
@@ -45,8 +40,11 @@
         x: map_range(p.x, min.x, max.x, 0, canvas.width),
         y: map_range(p.y, min.y, max.y, 0, canvas.height),
       });
+
       function line(p1, p2) {
         const [c1, c2] = [p1, p2].map(range);
+        ctx.lineWidth = 75;
+
         ctx.beginPath();
         ctx.moveTo(c1.x, c1.y);
         ctx.lineTo(c2.x, c2.y);
@@ -54,13 +52,8 @@
       }
 
       function plot(p) {
-        ctx.fillStyle = 'red';
-
-        ctx.beginPath();
         const { x, y } = range(p);
-        ctx.arc(x, y, 10, 0, 2 * Math.PI, true);
-        ctx.closePath();
-        ctx.fill();
+        ctx.fillRect(x, y, 10, 10);
       }
 
       const combo = [];
@@ -71,14 +64,40 @@
           }
         });
       });
-      combo.forEach((shit) => line(...shit));
 
-      setInterval(() => {
-        navigator.geolocation.getCurrentPosition((position) => {
-          console.log(position.coords);
-          plot({ x: position.coords.latitude, y: position.coords.longitude });
+      const getlocs = async () => {
+        return fetch(`${end}/getlocs`).then((res) => res.json());
+      };
+
+      const repaint = async (x, y) => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        combo.forEach((shit) => line(...shit));
+
+        ctx.fillStyle = 'red';
+        plot({
+          x,
+          y,
         });
-      }, 1);
+      };
+
+      setInterval(async () => {
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          const res = await fetch(`${end}/${status}locupdate`, {
+            method: 'POST',
+            headers: {
+              passwd: __NOT_THE_PASSWORD,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              [`${status}_latitude`]: position.coords.latitude,
+              [`${status}_longitude`]: position.coords.longitude,
+            }),
+          });
+        });
+        const locs = await getlocs();
+        const opp = status === 'client' ? 'driver' : 'client';
+        repaint(locs[opp + '_latitude'], locs[opp + '_longitude']);
+      }, 200);
     </script>
   </body>
 </html>
